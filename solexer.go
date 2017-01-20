@@ -5,8 +5,11 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
+
+	"github.com/urfave/cli"
 )
 
 type arg struct {
@@ -20,7 +23,49 @@ type function struct {
 }
 
 func main() {
-	b, err := ioutil.ReadFile("/Users/joeb/Workspaces/eth/misc/contracts/Constructor.sol") // just pass the file name
+
+	app := cli.NewApp()
+	app.Name = "solexer"
+	app.Usage = "Lexical Analyzer for solidity files"
+	app.Action = func(c *cli.Context) error {
+		solexerEntry(c)
+		return nil
+	}
+
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "input-file, i",
+			Usage: "Perform lex on `FILE`",
+		},
+		cli.StringFlag{
+			Name:  "out, o",
+			Usage: "Output to `FILE`, if not specified stdout is used",
+		},
+		cli.StringFlag{
+			Name:  "format, f",
+			Value: "Choose format for output file",
+			Usage: "Load configuration from `FILE`",
+		},
+	}
+
+	app.Commands = []cli.Command{
+		{
+			Name:  "about",
+			Usage: "More info about this project",
+			Action: func(c *cli.Context) error {
+				fmt.Println("Find out more about this project at github.com/joeb000/solexer")
+				return nil
+			},
+		},
+	}
+
+	app.Run(os.Args)
+
+}
+
+func solexerEntry(c *cli.Context) {
+
+	b, err := ioutil.ReadFile(c.String("input-file"))
 	if err != nil {
 		fmt.Print(err)
 	}
@@ -34,7 +79,6 @@ func main() {
 		fmt.Printf("Function: %s\nArgs: %s\nReturns: %s\n\n", result.name, result.args, result.returnType)
 
 	}
-
 }
 
 func createFuncSlice(s string) []function {
@@ -48,11 +92,12 @@ func createFuncSlice(s string) []function {
 	nameRx := regexp.MustCompile(` .*?\(`)
 	argsRx := regexp.MustCompile(`\(.*?\)`)
 	spaceRx := regexp.MustCompile("[^\\s]+")
+	retRx := regexp.MustCompile("returns .*?\\)")
 
 	for i, f := range strSlice {
 
 		fnslice[i].name = strings.TrimSpace(strings.Replace(nameRx.FindString(f), "(", " ", 1))
-		args := strings.Trim(strings.Trim(argsRx.FindString(f), "("), ")")
+		args := removeSpaceAndParens(argsRx.FindString(f))
 		argSlice := strings.SplitN(args, ",", -1)
 
 		//grep out arguments
@@ -67,7 +112,9 @@ func createFuncSlice(s string) []function {
 		}
 
 		//find return
-
+		if strings.Contains(f, "returns") {
+			fnslice[i].returnType = removeSpaceAndParens(strings.Trim(retRx.FindString(f), "returns"))
+		}
 	}
 
 	return fnslice
@@ -81,4 +128,11 @@ func stripLineComments(s string) string {
 		buffer.WriteString(rx.ReplaceAllString(line, " "))
 	}
 	return buffer.String()
+}
+
+func removeSpaceAndParens(s string) string {
+	s = strings.Replace(s, "(", " ", -1)
+	s = strings.Replace(s, ")", " ", -1)
+	s = strings.TrimSpace(s)
+	return s
 }
