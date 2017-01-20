@@ -96,16 +96,11 @@ func solexerEntry(c *cli.Context) {
 	str = strings.Replace(str, "\n", " ", -1) //strip newlines
 
 	fSlice := createFuncSlice(str)
-	jsonOut, err := json.Marshal(fSlice)
+	jsonOut, err := json.MarshalIndent(fSlice, "", "  ")
 	if err != nil {
 		fmt.Errorf("Error marshalling json: %v", err)
 	}
 	fmt.Fprintln(iow, string(jsonOut))
-	for _, result := range fSlice {
-		fmt.Fprintf(iow, "Function: %s\nArgs: %s\nReturns: %s\n\n", result.Name, result.Args, result.ReturnType)
-
-	}
-
 }
 
 func createFuncSlice(s string) []function {
